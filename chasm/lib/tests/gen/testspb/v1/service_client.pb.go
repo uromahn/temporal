@@ -28,7 +28,7 @@ type TestServiceLayeredClient struct {
 }
 
 // NewTestServiceLayeredClient initializes a new TestServiceLayeredClient.
-func NewNewTestServiceLayeredClient(
+func NewTestServiceLayeredClient(
 	dc *dynamicconfig.Collection,
 	rpcFactory common.RPCFactory,
 	monitor membership.Monitor,

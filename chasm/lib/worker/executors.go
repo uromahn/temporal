@@ -2,6 +2,9 @@
 package worker
 
 import (
+	"context"
+
+	"go.temporal.io/server/api/historyservice/v1"
 	"go.temporal.io/server/chasm"
 	workerstatepb "go.temporal.io/server/chasm/lib/worker/gen/workerpb/v1"
 	"go.temporal.io/server/common/log"
@@ -10,32 +13,53 @@ import (
 
 // LeaseExpiryTaskExecutor handles lease expiry events.
 type LeaseExpiryTaskExecutor struct {
-	logger log.Logger
-	config *Config
+	logger        log.Logger
+	config        *Config
+	historyClient historyservice.HistoryServiceClient
 }
 
-func NewLeaseExpiryTaskExecutor(logger log.Logger, config *Config) *LeaseExpiryTaskExecutor {
+func NewLeaseExpiryTaskExecutor(
+	logger log.Logger,
+	config *Config,
+	historyClient historyservice.HistoryServiceClient,
+) *LeaseExpiryTaskExecutor {
 	return &LeaseExpiryTaskExecutor{
-		logger: logger,
-		config: config,
+		logger:        logger,
+		config:        config,
+		historyClient: historyClient,
 	}
 }
 
 // Execute is called when a lease expiry timer fires.
+// This is a Side Effect task because it makes external RPC calls to the history service.
 func (e *LeaseExpiryTaskExecutor) Execute(
-	ctx chasm.MutableContext,
-	worker *Worker,
+	ctx context.Context,
+	ref chasm.ComponentRef,
 	attrs chasm.TaskAttributes,
 	task *workerstatepb.LeaseExpiryTask,
 ) error {
-	// Calculate cleanup delay from dynamic config.
-	namespaceID := ctx.ExecutionKey().NamespaceID
-	cleanupDelay := e.config.InactiveWorkerCleanupDelay(namespaceID)
+	// Read worker, reschedule activities, then apply transition
+	_, _, err := chasm.UpdateComponent(
+		ctx,
+		ref,
+		func(w *Worker, updateCtx chasm.MutableContext, _ any) (any, error) {
+			// Reschedule activities bound to this worker
+			if err := w.rescheduleActivities(ctx, e.logger, e.historyClient); err != nil {
+				return nil, err
+			}
 
-	// Apply the lease expiry transition with cleanup delay.
-	return TransitionLeaseExpired.Apply(ctx, worker, EventLeaseExpired{
-		CleanupDelay: cleanupDelay,
-	})
+			// Calculate cleanup delay from dynamic config
+			namespaceID := updateCtx.ExecutionKey().NamespaceID
+			cleanupDelay := e.config.InactiveWorkerCleanupDelay(namespaceID)
+
+			// Apply the lease expiry transition with cleanup delay
+			return nil, TransitionLeaseExpired.Apply(updateCtx, w, EventLeaseExpired{
+				CleanupDelay: cleanupDelay,
+			})
+		},
+		nil,
+	)
+	return err
 }
 
 // Validate checks if the lease expiry task is still valid (implements TaskValidator interface).

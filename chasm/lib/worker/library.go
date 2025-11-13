@@ -3,6 +3,7 @@ package worker
 import (
 	"go.temporal.io/server/chasm"
 	workerstatepb "go.temporal.io/server/chasm/lib/worker/gen/workerpb/v1"
+	"go.temporal.io/server/client"
 	"go.temporal.io/server/common/log"
 	"google.golang.org/grpc"
 )
@@ -18,10 +19,11 @@ type Library struct {
 func NewLibrary(
 	logger log.Logger,
 	config *Config,
+	clientBean client.Bean,
 ) *Library {
 	return &Library{
 		handler:                   newHandler(),
-		leaseExpiryTaskExecutor:   NewLeaseExpiryTaskExecutor(logger, config),
+		leaseExpiryTaskExecutor:   NewLeaseExpiryTaskExecutor(logger, config, clientBean.GetHistoryClient()),
 		workerCleanupTaskExecutor: NewWorkerCleanupTaskExecutor(logger),
 	}
 }
@@ -43,7 +45,7 @@ func (l *Library) Components() []*chasm.RegistrableComponent {
 
 func (l *Library) Tasks() []*chasm.RegistrableTask {
 	return []*chasm.RegistrableTask{
-		chasm.NewRegistrablePureTask(
+		chasm.NewRegistrableSideEffectTask(
 			"expiry",
 			l.leaseExpiryTaskExecutor,
 			l.leaseExpiryTaskExecutor,

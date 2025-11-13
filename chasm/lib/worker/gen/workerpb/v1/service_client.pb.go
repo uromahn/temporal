@@ -27,7 +27,7 @@ type WorkerServiceLayeredClient struct {
 }
 
 // NewWorkerServiceLayeredClient initializes a new WorkerServiceLayeredClient.
-func NewNewWorkerServiceLayeredClient(
+func NewWorkerServiceLayeredClient(
 	dc *dynamicconfig.Collection,
 	rpcFactory common.RPCFactory,
 	monitor membership.Monitor,

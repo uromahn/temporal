@@ -27,7 +27,7 @@ type SchedulerServiceLayeredClient struct {
 }
 
 // NewSchedulerServiceLayeredClient initializes a new SchedulerServiceLayeredClient.
-func NewNewSchedulerServiceLayeredClient(
+func NewSchedulerServiceLayeredClient(
 	dc *dynamicconfig.Collection,
 	rpcFactory common.RPCFactory,
 	monitor membership.Monitor,

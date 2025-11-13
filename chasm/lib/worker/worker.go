@@ -3,11 +3,19 @@
 package worker
 
 import (
+	"context"
 	"fmt"
 	"time"
 
+	enumspb "go.temporal.io/api/enums/v1"
+	failurepb "go.temporal.io/api/failure/v1"
+	"go.temporal.io/api/workflowservice/v1"
+	"go.temporal.io/server/api/historyservice/v1"
 	"go.temporal.io/server/chasm"
 	workerstatepb "go.temporal.io/server/chasm/lib/worker/gen/workerpb/v1"
+	"go.temporal.io/server/common/log"
+	"go.temporal.io/server/common/log/tag"
+	"go.temporal.io/server/common/tasktoken"
 )
 
 const (
@@ -68,6 +76,94 @@ func (w *Worker) workerID() string {
 		return ""
 	}
 	return w.GetWorkerHeartbeat().GetWorkerInstanceKey()
+}
+
+// rescheduleActivities marks all activities bound to this worker as timed out
+// and reschedules them for execution on other workers.
+func (w *Worker) rescheduleActivities(
+	ctx context.Context,
+	logger log.Logger,
+	historyClient historyservice.HistoryServiceClient,
+) error {
+	activityInfo := w.GetWorkerHeartbeat().GetActivityInfo()
+	if activityInfo == nil {
+		return nil
+	}
+
+	runningActivityTaskTokens := activityInfo.GetRunningActivityIds()
+	if len(runningActivityTaskTokens) == 0 {
+		return nil
+	}
+
+	logger.Info("Rescheduling activities for inactive worker",
+		tag.WorkerID(w.workerID()),
+		tag.NewInt("activity_count", len(runningActivityTaskTokens)))
+
+	tokenSerializer := tasktoken.NewSerializer()
+	var failedCount int
+	var successCount int
+
+	// Timeout each activity by calling history service
+	timeoutFailure := &failurepb.Failure{
+		Message: "Activity timed out due to worker becoming inactive",
+		FailureInfo: &failurepb.Failure_TimeoutFailureInfo{
+			TimeoutFailureInfo: &failurepb.TimeoutFailureInfo{
+				TimeoutType: enumspb.TIMEOUT_TYPE_HEARTBEAT,
+			},
+		},
+	}
+	for _, taskToken := range runningActivityTaskTokens {
+		// Deserialize the task token to get activity information
+		token, err := tokenSerializer.Deserialize(taskToken)
+		if err != nil {
+			logger.Error("Failed to deserialize activity task token",
+				tag.WorkerID(w.workerID()),
+				tag.Error(err))
+			failedCount++
+			continue
+		}
+
+		// Call history service to fail the activity with timeout
+		_, err = historyClient.RespondActivityTaskFailed(ctx, &historyservice.RespondActivityTaskFailedRequest{
+			NamespaceId: token.NamespaceId,
+			FailedRequest: &workflowservice.RespondActivityTaskFailedRequest{
+				TaskToken: taskToken,
+				Failure:   timeoutFailure,
+				Identity:  "worker-liveness-monitor",
+			},
+		})
+
+		// TODO: Handle retryable vs non-retryable errors
+		if err != nil {
+			logger.Error("Failed to timeout activity",
+				tag.WorkerID(w.workerID()),
+				tag.WorkflowID(token.WorkflowId),
+				tag.WorkflowRunID(token.RunId),
+				tag.WorkflowActivityID(token.ActivityId),
+				tag.Error(err))
+			failedCount++
+			continue
+		}
+
+		logger.Info("Successfully timed out activity",
+			tag.WorkerID(w.workerID()),
+			tag.WorkflowID(token.WorkflowId),
+			tag.WorkflowRunID(token.RunId),
+			tag.WorkflowActivityID(token.ActivityId))
+		successCount++
+	}
+
+	logger.Info("Completed activity rescheduling",
+		tag.WorkerID(w.workerID()),
+		tag.NewInt("success_count", successCount),
+		tag.NewInt("failed_count", failedCount))
+
+	// Return error if all activities failed to timeout
+	if failedCount > 0 && successCount == 0 {
+		return fmt.Errorf("failed to timeout all %d activities", failedCount)
+	}
+
+	return nil
 }
 
 // recordHeartbeat processes a heartbeat, updating worker state and extending the lease.
