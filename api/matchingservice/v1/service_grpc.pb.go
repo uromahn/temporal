@@ -27,6 +27,7 @@ const (
 	MatchingService_QueryWorkflow_FullMethodName                          = "/temporal.server.api.matchingservice.v1.MatchingService/QueryWorkflow"
 	MatchingService_RespondQueryTaskCompleted_FullMethodName              = "/temporal.server.api.matchingservice.v1.MatchingService/RespondQueryTaskCompleted"
 	MatchingService_DispatchNexusTask_FullMethodName                      = "/temporal.server.api.matchingservice.v1.MatchingService/DispatchNexusTask"
+	MatchingService_AddWorkerControlTask_FullMethodName                   = "/temporal.server.api.matchingservice.v1.MatchingService/AddWorkerControlTask"
 	MatchingService_PollNexusTaskQueue_FullMethodName                     = "/temporal.server.api.matchingservice.v1.MatchingService/PollNexusTaskQueue"
 	MatchingService_RespondNexusTaskCompleted_FullMethodName              = "/temporal.server.api.matchingservice.v1.MatchingService/RespondNexusTaskCompleted"
 	MatchingService_RespondNexusTaskFailed_FullMethodName                 = "/temporal.server.api.matchingservice.v1.MatchingService/RespondNexusTaskFailed"
@@ -83,6 +84,9 @@ type MatchingServiceClient interface {
 	RespondQueryTaskCompleted(ctx context.Context, in *RespondQueryTaskCompletedRequest, opts ...grpc.CallOption) (*RespondQueryTaskCompletedResponse, error)
 	// Request from frontend to synchronously dispatch a nexus task to a worker.
 	DispatchNexusTask(ctx context.Context, in *DispatchNexusTaskRequest, opts ...grpc.CallOption) (*DispatchNexusTaskResponse, error)
+	// Request from history to synchronously dispatch a worker control task to a worker's control queue.
+	// Uses sync-match only - returns error if no worker is polling. History's outbound queue handles retries.
+	AddWorkerControlTask(ctx context.Context, in *AddWorkerControlTaskRequest, opts ...grpc.CallOption) (*AddWorkerControlTaskResponse, error)
 	// Request from worker (via frontend) to long poll on nexus tasks.
 	PollNexusTaskQueue(ctx context.Context, in *PollNexusTaskQueueRequest, opts ...grpc.CallOption) (*PollNexusTaskQueueResponse, error)
 	// Response from a worker (via frontend) to a Nexus task, unblocks the corresponding DispatchNexusTask request.
@@ -306,6 +310,15 @@ func (c *matchingServiceClient) RespondQueryTaskCompleted(ctx context.Context, i
 func (c *matchingServiceClient) DispatchNexusTask(ctx context.Context, in *DispatchNexusTaskRequest, opts ...grpc.CallOption) (*DispatchNexusTaskResponse, error) {
 	out := new(DispatchNexusTaskResponse)
 	err := c.cc.Invoke(ctx, MatchingService_DispatchNexusTask_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *matchingServiceClient) AddWorkerControlTask(ctx context.Context, in *AddWorkerControlTaskRequest, opts ...grpc.CallOption) (*AddWorkerControlTaskResponse, error) {
+	out := new(AddWorkerControlTaskResponse)
+	err := c.cc.Invoke(ctx, MatchingService_AddWorkerControlTask_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -622,6 +635,9 @@ type MatchingServiceServer interface {
 	RespondQueryTaskCompleted(context.Context, *RespondQueryTaskCompletedRequest) (*RespondQueryTaskCompletedResponse, error)
 	// Request from frontend to synchronously dispatch a nexus task to a worker.
 	DispatchNexusTask(context.Context, *DispatchNexusTaskRequest) (*DispatchNexusTaskResponse, error)
+	// Request from history to synchronously dispatch a worker control task to a worker's control queue.
+	// Uses sync-match only - returns error if no worker is polling. History's outbound queue handles retries.
+	AddWorkerControlTask(context.Context, *AddWorkerControlTaskRequest) (*AddWorkerControlTaskResponse, error)
 	// Request from worker (via frontend) to long poll on nexus tasks.
 	PollNexusTaskQueue(context.Context, *PollNexusTaskQueueRequest) (*PollNexusTaskQueueResponse, error)
 	// Response from a worker (via frontend) to a Nexus task, unblocks the corresponding DispatchNexusTask request.
@@ -805,6 +821,9 @@ func (UnimplementedMatchingServiceServer) RespondQueryTaskCompleted(context.Cont
 }
 func (UnimplementedMatchingServiceServer) DispatchNexusTask(context.Context, *DispatchNexusTaskRequest) (*DispatchNexusTaskResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DispatchNexusTask not implemented")
+}
+func (UnimplementedMatchingServiceServer) AddWorkerControlTask(context.Context, *AddWorkerControlTaskRequest) (*AddWorkerControlTaskResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method AddWorkerControlTask not implemented")
 }
 func (UnimplementedMatchingServiceServer) PollNexusTaskQueue(context.Context, *PollNexusTaskQueueRequest) (*PollNexusTaskQueueResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method PollNexusTaskQueue not implemented")
@@ -1037,6 +1056,24 @@ func _MatchingService_DispatchNexusTask_Handler(srv interface{}, ctx context.Con
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(MatchingServiceServer).DispatchNexusTask(ctx, req.(*DispatchNexusTaskRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MatchingService_AddWorkerControlTask_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AddWorkerControlTaskRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MatchingServiceServer).AddWorkerControlTask(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MatchingService_AddWorkerControlTask_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MatchingServiceServer).AddWorkerControlTask(ctx, req.(*AddWorkerControlTaskRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1651,6 +1688,10 @@ var MatchingService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "DispatchNexusTask",
 			Handler:    _MatchingService_DispatchNexusTask_Handler,
+		},
+		{
+			MethodName: "AddWorkerControlTask",
+			Handler:    _MatchingService_AddWorkerControlTask_Handler,
 		},
 		{
 			MethodName: "PollNexusTaskQueue",

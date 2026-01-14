@@ -488,6 +488,11 @@ func (h *Handler) DispatchNexusTask(ctx context.Context, request *matchingservic
 	return h.engine.DispatchNexusTask(ctx, request)
 }
 
+func (h *Handler) AddWorkerControlTask(ctx context.Context, request *matchingservice.AddWorkerControlTaskRequest) (_ *matchingservice.AddWorkerControlTaskResponse, retError error) {
+	defer log.CapturePanic(h.logger, &retError)
+	return h.engine.AddWorkerControlTask(ctx, request)
+}
+
 func (h *Handler) PollNexusTaskQueue(ctx context.Context, request *matchingservice.PollNexusTaskQueueRequest) (_ *matchingservice.PollNexusTaskQueueResponse, retError error) {
 	defer log.CapturePanic(h.logger, &retError)
 	opMetrics := h.opMetricsHandler(

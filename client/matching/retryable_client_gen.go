@@ -26,6 +26,21 @@ func (c *retryableClient) AddActivityTask(
 	return resp, err
 }
 
+func (c *retryableClient) AddWorkerControlTask(
+	ctx context.Context,
+	request *matchingservice.AddWorkerControlTaskRequest,
+	opts ...grpc.CallOption,
+) (*matchingservice.AddWorkerControlTaskResponse, error) {
+	var resp *matchingservice.AddWorkerControlTaskResponse
+	op := func(ctx context.Context) error {
+		var err error
+		resp, err = c.client.AddWorkerControlTask(ctx, request, opts...)
+		return err
+	}
+	err := backoff.ThrottleRetryContext(ctx, op, c.policy, c.isRetryable)
+	return resp, err
+}
+
 func (c *retryableClient) AddWorkflowTask(
 	ctx context.Context,
 	request *matchingservice.AddWorkflowTaskRequest,

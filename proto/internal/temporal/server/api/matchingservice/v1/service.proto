@@ -43,6 +43,11 @@ service MatchingService {
     rpc DispatchNexusTask (DispatchNexusTaskRequest) returns (DispatchNexusTaskResponse) {
     }
 
+    // Request from history to synchronously dispatch a worker control task to a worker's control queue.
+    // Uses sync-match only - returns error if no worker is polling. History's outbound queue handles retries.
+    rpc AddWorkerControlTask (AddWorkerControlTaskRequest) returns (AddWorkerControlTaskResponse) {
+    }
+
     // Request from worker (via frontend) to long poll on nexus tasks.
     rpc PollNexusTaskQueue (PollNexusTaskQueueRequest) returns (PollNexusTaskQueueResponse) {
     }

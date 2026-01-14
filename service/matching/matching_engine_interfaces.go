@@ -36,6 +36,7 @@ type (
 		CheckTaskQueueUserDataPropagation(ctx context.Context, request *matchingservice.CheckTaskQueueUserDataPropagationRequest) (*matchingservice.CheckTaskQueueUserDataPropagationResponse, error)
 		CheckTaskQueueVersionMembership(ctx context.Context, request *matchingservice.CheckTaskQueueVersionMembershipRequest) (*matchingservice.CheckTaskQueueVersionMembershipResponse, error)
 		DispatchNexusTask(ctx context.Context, request *matchingservice.DispatchNexusTaskRequest) (*matchingservice.DispatchNexusTaskResponse, error)
+		AddWorkerControlTask(ctx context.Context, request *matchingservice.AddWorkerControlTaskRequest) (*matchingservice.AddWorkerControlTaskResponse, error)
 		PollNexusTaskQueue(ctx context.Context, request *matchingservice.PollNexusTaskQueueRequest, opMetrics metrics.Handler) (*matchingservice.PollNexusTaskQueueResponse, error)
 		RespondNexusTaskCompleted(ctx context.Context, request *matchingservice.RespondNexusTaskCompletedRequest, opMetrics metrics.Handler) (*matchingservice.RespondNexusTaskCompletedResponse, error)
 		RespondNexusTaskFailed(ctx context.Context, request *matchingservice.RespondNexusTaskFailedRequest, opMetrics metrics.Handler) (*matchingservice.RespondNexusTaskFailedResponse, error)

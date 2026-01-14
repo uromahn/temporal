@@ -329,7 +329,8 @@ func makeGetMatchingClient(reqType reflect.Type) string {
 	case "DispatchNexusTaskRequest",
 		"PollNexusTaskQueueRequest",
 		"RespondNexusTaskCompletedRequest",
-		"RespondNexusTaskFailedRequest":
+		"RespondNexusTaskFailedRequest",
+		"AddWorkerControlTaskRequest":
 		tq = findOneNestedField(t, "TaskQueue", "request", 2)
 		tqt = fieldWithPath{path: "enumspb.TASK_QUEUE_TYPE_NEXUS"}
 		nsID = findOneNestedField(t, "NamespaceId", "request", 1)

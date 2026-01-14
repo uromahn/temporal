@@ -1929,6 +1929,80 @@ func (this *DispatchNexusTaskResponse) Equal(that interface{}) bool {
 	return proto.Equal(this, that1)
 }
 
+// Marshal an object of type AddWorkerControlTaskRequest to the protobuf v3 wire format
+func (val *AddWorkerControlTaskRequest) Marshal() ([]byte, error) {
+	return proto.Marshal(val)
+}
+
+// Unmarshal an object of type AddWorkerControlTaskRequest from the protobuf v3 wire format
+func (val *AddWorkerControlTaskRequest) Unmarshal(buf []byte) error {
+	return proto.Unmarshal(buf, val)
+}
+
+// Size returns the size of the object, in bytes, once serialized
+func (val *AddWorkerControlTaskRequest) Size() int {
+	return proto.Size(val)
+}
+
+// Equal returns whether two AddWorkerControlTaskRequest values are equivalent by recursively
+// comparing the message's fields.
+// For more information see the documentation for
+// https://pkg.go.dev/google.golang.org/protobuf/proto#Equal
+func (this *AddWorkerControlTaskRequest) Equal(that interface{}) bool {
+	if that == nil {
+		return this == nil
+	}
+
+	var that1 *AddWorkerControlTaskRequest
+	switch t := that.(type) {
+	case *AddWorkerControlTaskRequest:
+		that1 = t
+	case AddWorkerControlTaskRequest:
+		that1 = &t
+	default:
+		return false
+	}
+
+	return proto.Equal(this, that1)
+}
+
+// Marshal an object of type AddWorkerControlTaskResponse to the protobuf v3 wire format
+func (val *AddWorkerControlTaskResponse) Marshal() ([]byte, error) {
+	return proto.Marshal(val)
+}
+
+// Unmarshal an object of type AddWorkerControlTaskResponse from the protobuf v3 wire format
+func (val *AddWorkerControlTaskResponse) Unmarshal(buf []byte) error {
+	return proto.Unmarshal(buf, val)
+}
+
+// Size returns the size of the object, in bytes, once serialized
+func (val *AddWorkerControlTaskResponse) Size() int {
+	return proto.Size(val)
+}
+
+// Equal returns whether two AddWorkerControlTaskResponse values are equivalent by recursively
+// comparing the message's fields.
+// For more information see the documentation for
+// https://pkg.go.dev/google.golang.org/protobuf/proto#Equal
+func (this *AddWorkerControlTaskResponse) Equal(that interface{}) bool {
+	if that == nil {
+		return this == nil
+	}
+
+	var that1 *AddWorkerControlTaskResponse
+	switch t := that.(type) {
+	case *AddWorkerControlTaskResponse:
+		that1 = t
+	case AddWorkerControlTaskResponse:
+		that1 = &t
+	default:
+		return false
+	}
+
+	return proto.Equal(this, that1)
+}
+
 // Marshal an object of type PollNexusTaskQueueRequest to the protobuf v3 wire format
 func (val *PollNexusTaskQueueRequest) Marshal() ([]byte, error) {
 	return proto.Marshal(val)

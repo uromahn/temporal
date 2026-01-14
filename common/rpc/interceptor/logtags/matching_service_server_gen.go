@@ -16,6 +16,10 @@ func (wt *WorkflowTags) extractFromMatchingServiceServerMessage(message any) []t
 		}
 	case *matchingservice.AddActivityTaskResponse:
 		return nil
+	case *matchingservice.AddWorkerControlTaskRequest:
+		return nil
+	case *matchingservice.AddWorkerControlTaskResponse:
+		return nil
 	case *matchingservice.AddWorkflowTaskRequest:
 		return []tag.Tag{
 			tag.WorkflowID(r.GetExecution().GetWorkflowId()),

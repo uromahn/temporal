@@ -9,6 +9,20 @@ import (
 	"google.golang.org/grpc"
 )
 
+func (c *metricClient) AddWorkerControlTask(
+	ctx context.Context,
+	request *matchingservice.AddWorkerControlTaskRequest,
+	opts ...grpc.CallOption,
+) (_ *matchingservice.AddWorkerControlTaskResponse, retError error) {
+
+	metricsHandler, startTime := c.startMetricsRecording(ctx, "MatchingClientAddWorkerControlTask")
+	defer func() {
+		c.finishMetricsRecording(metricsHandler, startTime, retError)
+	}()
+
+	return c.client.AddWorkerControlTask(ctx, request, opts...)
+}
+
 func (c *metricClient) ApplyTaskQueueUserDataReplicationEvent(
 	ctx context.Context,
 	request *matchingservice.ApplyTaskQueueUserDataReplicationEventRequest,

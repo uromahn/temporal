@@ -15,6 +15,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/nexus-rpc/sdk-go/nexus"
 	commonpb "go.temporal.io/api/common/v1"
+	nexuspb "go.temporal.io/api/nexus/v1"
+	"google.golang.org/protobuf/proto"
 	deploymentpb "go.temporal.io/api/deployment/v1"
 	enumspb "go.temporal.io/api/enums/v1"
 	historypb "go.temporal.io/api/history/v1"
@@ -72,6 +74,10 @@ const (
 	versioningPollerSeenWindow        = 70 * time.Second
 	recordTaskStartedDefaultTimeout   = 10 * time.Second
 	recordTaskStartedSyncMatchTimeout = 1 * time.Second
+
+	// Worker control task Nexus service and operation names
+	workerControlNexusService   = "temporal.worker.control"
+	workerControlNexusOperation = "execute"
 )
 
 type (
@@ -2417,6 +2423,55 @@ func (e *matchingEngineImpl) DispatchNexusTask(ctx context.Context, request *mat
 			RequestTimeout: &matchingservice.DispatchNexusTaskResponse_Timeout{},
 		}}, nil
 	}
+}
+
+// AddWorkerControlTask dispatches a control task to a worker's control queue.
+// This is a sync-match only operation - returns error if no worker is polling.
+// History's outbound queue handles retries on failure.
+func (e *matchingEngineImpl) AddWorkerControlTask(ctx context.Context, request *matchingservice.AddWorkerControlTaskRequest) (*matchingservice.AddWorkerControlTaskResponse, error) {
+	// Serialize the control payload for the worker
+	controlPayloadBytes, err := proto.Marshal(request.GetControlPayload())
+	if err != nil {
+		return nil, serviceerror.NewInternal(fmt.Sprintf("failed to marshal control payload: %v", err))
+	}
+
+	// Create a Nexus StartOperationRequest wrapping the control payload
+	nexusRequest := &nexuspb.Request{
+		Header: map[string]string{},
+		Variant: &nexuspb.Request_StartOperation{
+			StartOperation: &nexuspb.StartOperationRequest{
+				Service:   workerControlNexusService,
+				Operation: workerControlNexusOperation,
+				Payload: &commonpb.Payload{
+					Metadata: map[string][]byte{
+						"encoding": []byte("proto"),
+					},
+					Data: controlPayloadBytes,
+				},
+			},
+		},
+	}
+
+	// Create DispatchNexusTaskRequest and delegate to existing Nexus dispatch logic
+	dispatchRequest := &matchingservice.DispatchNexusTaskRequest{
+		NamespaceId: request.GetNamespaceId(),
+		TaskQueue:   request.GetTaskQueue(),
+		Request:     nexusRequest,
+	}
+
+	// Use the existing DispatchNexusTask which handles sync-match with timeout
+	resp, err := e.DispatchNexusTask(ctx, dispatchRequest)
+	if err != nil {
+		return nil, err
+	}
+
+	// For control tasks, we don't care about the response content.
+	// If we get a timeout, it means no worker was polling.
+	if resp.GetRequestTimeout() != nil {
+		return nil, serviceerror.NewUnavailable("no worker polling control queue")
+	}
+
+	return &matchingservice.AddWorkerControlTaskResponse{}, nil
 }
 
 func (e *matchingEngineImpl) PollNexusTaskQueue(
