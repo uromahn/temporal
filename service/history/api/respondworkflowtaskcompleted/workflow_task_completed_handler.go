@@ -17,9 +17,12 @@ import (
 	historypb "go.temporal.io/api/history/v1"
 	protocolpb "go.temporal.io/api/protocol/v1"
 	"go.temporal.io/api/serviceerror"
+	taskqueuepb "go.temporal.io/api/taskqueue/v1"
+	workerpb "go.temporal.io/api/worker/v1"
 	"go.temporal.io/api/workflowservice/v1"
 	"go.temporal.io/server/api/historyservice/v1"
 	"go.temporal.io/server/api/matchingservice/v1"
+	persistencespb "go.temporal.io/server/api/persistence/v1"
 	"go.temporal.io/server/common"
 	"go.temporal.io/server/common/backoff"
 	"go.temporal.io/server/common/collection"
@@ -621,7 +624,7 @@ func (handler *workflowTaskCompletedHandler) handlePostCommandEagerExecuteActivi
 }
 
 func (handler *workflowTaskCompletedHandler) handleCommandRequestCancelActivity(
-	_ context.Context,
+	ctx context.Context,
 	attr *commandpb.RequestCancelActivityTaskCommandAttributes,
 ) (*historypb.HistoryEvent, error) {
 	if err := handler.validateCommandAttr(
@@ -659,9 +662,91 @@ func (handler *workflowTaskCompletedHandler) handleCommandRequestCancelActivity(
 				return nil, err
 			}
 			handler.activityNotStartedCancelled = true
+		} else if ai.WorkerSupportsControlTasks && ai.WorkerInstanceKey != "" {
+			// Activity is running and worker supports control tasks.
+			// Try to push a cancel task to the worker's control queue.
+			// This is best-effort - if sync-match fails, heartbeat will pick it up.
+			handler.dispatchActivityCancelTask(ctx, ai, actCancelReqEvent.GetEventId())
 		}
 	}
 	return actCancelReqEvent, nil
+}
+
+// dispatchActivityCancelTask attempts to deliver a cancel task to the worker's control queue.
+// This is a best-effort operation - failures are logged but don't fail the cancel request.
+func (handler *workflowTaskCompletedHandler) dispatchActivityCancelTask(
+	ctx context.Context,
+	ai *persistencespb.ActivityInfo,
+	cancelRequestEventID int64,
+) {
+	if handler.matchingClient == nil {
+		return
+	}
+
+	executionInfo := handler.mutableState.GetExecutionInfo()
+	namespaceID := executionInfo.NamespaceId
+	workflowID := executionInfo.WorkflowId
+	runID := handler.mutableState.GetExecutionState().RunId
+
+	// Construct the worker control queue name
+	controlQueueName := fmt.Sprintf("/temporal-sys/worker-commands/%s/%s", namespaceID, ai.WorkerInstanceKey)
+
+	// Generate a unique task ID for deduplication
+	taskID := fmt.Sprintf("%s-%s-%d-%d", runID, ai.ActivityId, ai.ScheduledEventId, cancelRequestEventID)
+
+	// Create the cancel task
+	cancelTask := &workerpb.CancelActivityTask{
+		WorkflowExecution: &commonpb.WorkflowExecution{
+			WorkflowId: workflowID,
+			RunId:      runID,
+		},
+		ScheduledEventId: ai.ScheduledEventId,
+		ActivityId:       ai.ActivityId,
+		Reason:           "Workflow requested cancellation",
+	}
+
+	controlPayload := &workerpb.WorkerControlPayload{
+		Tasks: []*workerpb.WorkerControlTask{
+			{
+				TaskId: taskID,
+				Task: &workerpb.WorkerControlTask_CancelActivity{
+					CancelActivity: cancelTask,
+				},
+			},
+		},
+	}
+
+	// Send the cancel task to matching (best effort, don't block on result)
+	go func() {
+		dispatchCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		_, err := handler.matchingClient.AddWorkerControlTask(dispatchCtx, &matchingservice.AddWorkerControlTaskRequest{
+			NamespaceId: namespaceID,
+			TaskQueue: &taskqueuepb.TaskQueue{
+				Name: controlQueueName,
+				Kind: enumspb.TASK_QUEUE_KIND_NORMAL,
+			},
+			ControlPayload: controlPayload,
+		})
+		if err != nil {
+			// Log but don't fail - worker heartbeat will pick up cancellation
+			handler.logger.Info("Failed to dispatch activity cancel task to worker control queue",
+				tag.WorkflowNamespaceID(namespaceID),
+				tag.WorkflowID(workflowID),
+				tag.WorkflowRunID(runID),
+				tag.WorkflowScheduledEventID(ai.ScheduledEventId),
+				tag.Error(err),
+			)
+		} else {
+			handler.logger.Debug("Dispatched activity cancel task to worker control queue",
+				tag.WorkflowNamespaceID(namespaceID),
+				tag.WorkflowID(workflowID),
+				tag.WorkflowRunID(runID),
+				tag.WorkflowScheduledEventID(ai.ScheduledEventId),
+			)
+		}
+	}()
 }
 
 func (handler *workflowTaskCompletedHandler) handleCommandStartTimer(
