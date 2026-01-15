@@ -622,7 +622,7 @@ func (e *historyEngineImpl) RequestCancelWorkflowExecution(
 	ctx context.Context,
 	req *historyservice.RequestCancelWorkflowExecutionRequest,
 ) (resp *historyservice.RequestCancelWorkflowExecutionResponse, retError error) {
-	return requestcancelworkflow.Invoke(ctx, req, e.shardContext, e.workflowConsistencyChecker)
+	return requestcancelworkflow.Invoke(ctx, req, e.shardContext, e.workflowConsistencyChecker, e.rawMatchingClient, e.logger)
 }
 
 func (e *historyEngineImpl) SignalWorkflowExecution(
