@@ -256,6 +256,8 @@ func recordActivityTaskStarted(
 	if _, err := mutableState.AddActivityTaskStartedEvent(
 		ai, scheduledEventID, requestID, request.PollRequest.GetIdentity(),
 		versioningStamp, pollerDeployment, request.GetBuildIdRedirectInfo(),
+		request.PollRequest.GetWorkerInstanceKey(),
+		request.PollRequest.GetSupportsControlTasks(),
 	); err != nil {
 		return nil, rejectCodeUndefined, err
 	}

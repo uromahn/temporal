@@ -57,6 +57,8 @@ type (
 			*commonpb.WorkerVersionStamp,
 			*deploymentpb.Deployment,
 			*taskqueuespb.BuildIdRedirectInfo,
+			string, // workerInstanceKey
+			bool,   // workerSupportsControlTasks
 		) (*historypb.HistoryEvent, error)
 		AddActivityTaskTimedOutEvent(int64, int64, *failurepb.Failure, enumspb.RetryState) (*historypb.HistoryEvent, error)
 		AddChildWorkflowExecutionCanceledEvent(int64, *commonpb.WorkflowExecution, *historypb.WorkflowExecutionCanceledEventAttributes) (*historypb.HistoryEvent, error)

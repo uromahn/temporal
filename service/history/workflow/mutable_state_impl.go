@@ -4022,6 +4022,8 @@ func (ms *MutableStateImpl) AddActivityTaskStartedEvent(
 	versioningStamp *commonpb.WorkerVersionStamp,
 	deployment *deploymentpb.Deployment,
 	redirectInfo *taskqueuespb.BuildIdRedirectInfo,
+	workerInstanceKey string,
+	workerSupportsControlTasks bool,
 ) (*historypb.HistoryEvent, error) {
 	opTag := tag.WorkflowActionActivityTaskStarted
 	err := ms.checkMutability(opTag)
@@ -4049,6 +4051,10 @@ func (ms *MutableStateImpl) AddActivityTaskStartedEvent(
 		ai.LastWorkerDeploymentVersion = worker_versioning.WorkerDeploymentVersionToStringV31(worker_versioning.DeploymentVersionFromDeployment(deployment))
 		ai.LastDeploymentVersion = worker_versioning.ExternalWorkerDeploymentVersionFromDeployment(deployment)
 	}
+
+	// Store worker control queue info for activity cancellation support
+	ai.WorkerInstanceKey = workerInstanceKey
+	ai.WorkerSupportsControlTasks = workerSupportsControlTasks
 
 	if !ai.HasRetryPolicy {
 		event := ms.hBuilder.AddActivityTaskStartedEvent(
@@ -4081,6 +4087,8 @@ func (ms *MutableStateImpl) AddActivityTaskStartedEvent(
 		activityInfo.RequestId = requestID
 		activityInfo.StartedTime = timestamppb.New(ms.timeSource.Now())
 		activityInfo.StartedIdentity = identity
+		activityInfo.WorkerInstanceKey = workerInstanceKey
+		activityInfo.WorkerSupportsControlTasks = workerSupportsControlTasks
 		return nil
 	}); err != nil {
 		return nil, err

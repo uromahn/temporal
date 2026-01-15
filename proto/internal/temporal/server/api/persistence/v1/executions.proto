@@ -624,6 +624,15 @@ message ActivityInfo {
     bool reset_heartbeats = 48;
 
     int64 start_version = 50;
+
+    // The worker instance key of the worker executing this activity.
+    // Used to construct the control queue for pushing control messages (e.g., cancellation).
+    // Format: /temporal-sys/worker-commands/{namespace}/{worker_instance_key}
+    string worker_instance_key = 51;
+
+    // Indicates if the worker that started this activity supports control tasks.
+    // If false, server will not attempt to send control tasks to this worker.
+    bool worker_supports_control_tasks = 52;
 }
 
 // timer_map column

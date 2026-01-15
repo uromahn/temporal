@@ -2499,8 +2499,15 @@ type ActivityInfo struct {
 	// set to true if reset heartbeat flag was set with an activity reset
 	ResetHeartbeats bool  `protobuf:"varint,48,opt,name=reset_heartbeats,json=resetHeartbeats,proto3" json:"reset_heartbeats,omitempty"`
 	StartVersion    int64 `protobuf:"varint,50,opt,name=start_version,json=startVersion,proto3" json:"start_version,omitempty"`
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
+	// The worker instance key of the worker executing this activity.
+	// Used to construct the control queue for pushing control messages (e.g., cancellation).
+	// Format: /temporal-sys/worker-commands/{namespace}/{worker_instance_key}
+	WorkerInstanceKey string `protobuf:"bytes,51,opt,name=worker_instance_key,json=workerInstanceKey,proto3" json:"worker_instance_key,omitempty"`
+	// Indicates if the worker that started this activity supports control tasks.
+	// If false, server will not attempt to send control tasks to this worker.
+	WorkerSupportsControlTasks bool `protobuf:"varint,52,opt,name=worker_supports_control_tasks,json=workerSupportsControlTasks,proto3" json:"worker_supports_control_tasks,omitempty"`
+	unknownFields              protoimpl.UnknownFields
+	sizeCache                  protoimpl.SizeCache
 }
 
 func (x *ActivityInfo) Reset() {
@@ -2871,6 +2878,20 @@ func (x *ActivityInfo) GetStartVersion() int64 {
 		return x.StartVersion
 	}
 	return 0
+}
+
+func (x *ActivityInfo) GetWorkerInstanceKey() string {
+	if x != nil {
+		return x.WorkerInstanceKey
+	}
+	return ""
+}
+
+func (x *ActivityInfo) GetWorkerSupportsControlTasks() bool {
+	if x != nil {
+		return x.WorkerSupportsControlTasks
+	}
+	return false
 }
 
 type isActivityInfo_BuildIdInfo interface {
@@ -4816,7 +4837,7 @@ const file_temporal_server_api_persistence_v1_executions_proto_rawDesc = "" +
 	"\x17NexusInvocationTaskInfo\x12\x18\n" +
 	"\aattempt\x18\x01 \x01(\x05R\aattempt\"4\n" +
 	"\x18NexusCancelationTaskInfo\x12\x18\n" +
-	"\aattempt\x18\x01 \x01(\x05R\aattempt\"\x9e\x1b\n" +
+	"\aattempt\x18\x01 \x01(\x05R\aattempt\"\x91\x1c\n" +
 	"\fActivityInfo\x12\x18\n" +
 	"\aversion\x18\x01 \x01(\x03R\aversion\x127\n" +
 	"\x18scheduled_event_batch_id\x18\x02 \x01(\x03R\x15scheduledEventBatchId\x12A\n" +
@@ -4869,7 +4890,9 @@ const file_temporal_server_api_persistence_v1_executions_proto_rawDesc = "" +
 	"pause_info\x18. \x01(\v2:.temporal.server.api.persistence.v1.ActivityInfo.PauseInfoR\tpauseInfo\x12%\n" +
 	"\x0eactivity_reset\x18/ \x01(\bR\ractivityReset\x12)\n" +
 	"\x10reset_heartbeats\x180 \x01(\bR\x0fresetHeartbeats\x12#\n" +
-	"\rstart_version\x182 \x01(\x03R\fstartVersion\x1ay\n" +
+	"\rstart_version\x182 \x01(\x03R\fstartVersion\x12.\n" +
+	"\x13worker_instance_key\x183 \x01(\tR\x11workerInstanceKey\x12A\n" +
+	"\x1dworker_supports_control_tasks\x184 \x01(\bR\x1aworkerSupportsControlTasks\x1ay\n" +
 	"\x16UseWorkflowBuildIdInfo\x12+\n" +
 	"\x12last_used_build_id\x18\x01 \x01(\tR\x0flastUsedBuildId\x122\n" +
 	"\x15last_redirect_counter\x18\x02 \x01(\x03R\x13lastRedirectCounter\x1a\x89\x02\n" +
