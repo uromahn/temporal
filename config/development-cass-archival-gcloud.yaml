@@ -1,3 +1,5 @@
+# enable-template
+
 log:
   stdout: true
   level: info
@@ -29,8 +31,8 @@ global:
     port: 7936
   metrics:
     prometheus:
-#      # specify framework to use new approach for initializing metrics and/or use opentelemetry
-#      framework: "opentelemetry"
+      # specify framework to use new approach for initializing metrics and/or use opentelemetry
+      # framework: "opentelemetry"
       framework: "tally"
       timerType: "histogram"
       listenAddress: "127.0.0.1:8000"
@@ -82,22 +84,26 @@ archival:
     enableRead: true
     provider:
       gstorage:
-        credentialsPath: "/tmp/keyfile.json"
+        credentialsPath: ""
   visibility:
     state: "enabled"
     enableRead: true
     provider:
       gstorage:
-        credentialsPath: "/tmp/keyfile.json"
+        credentialsPath: ""
 
+{{- $bucket := env "GCLOUD_ARCHIVAL_BUCKET" -}}
+{{- if not $bucket -}}
+  {{- fail "GCLOUD_ARCHIVAL_BUCKET env var must be set" -}}
+{{- end }}
 namespaceDefaults:
   archival:
     history:
       state: "enabled"
-      URI: "gs://<bucket-name>/history-folder"
+      URI: "gs://{{ $bucket }}/history-folder"
     visibility:
       state: "enabled"
-      URI: "gs://<bucket-name>/visibility-folder"
+      URI: "gs://{{ $bucket }}/visibility-folder"
 
 dynamicConfigClient:
   filepath: "./config/dynamicconfig/development-cass.yaml"
