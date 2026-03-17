@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -471,7 +472,7 @@ func (s *visibilityArchiverSuite) TestQuery_Success_WorkflowIDOnly() {
 		Query:       "WorkflowId = '" + testWorkflowID + "'",
 	}
 
-	response, err := visibilityArchiver.Query(ctx, URI, request, searchattribute.TestNameTypeMap())
+	response, err := visibilityArchiver.Query(ctx, URI, request, searchattribute.TestNameTypeMap)
 	s.NoError(err)
 	s.NotNil(response)
 	s.Len(response.Executions, 1)
@@ -496,7 +497,7 @@ func (s *visibilityArchiverSuite) TestQuery_Fail_TimeBasedQuery_WithRunID() {
 		Query:       "CloseTime = '2020-02-05T11:00:00Z' AND SearchPrecision = 'Day' AND RunId = '" + testRunID + "'",
 	}
 
-	response, err := visibilityArchiver.Query(ctx, URI, request, searchattribute.TestNameTypeMap())
+	response, err := visibilityArchiver.Query(ctx, URI, request, searchattribute.TestNameTypeMap)
 	s.Error(err)
 	s.Nil(response)
 	s.Contains(err.Error(), "RunId is not supported")
@@ -530,7 +531,7 @@ func (s *visibilityArchiverSuite) TestQuery_Success_WorkflowID_WithTimeFilter() 
 		Query:       "WorkflowId = '" + testWorkflowID + "' AND CloseTime = '2020-02-05T09:56:14Z' AND SearchPrecision = 'Day'",
 	}
 
-	response, err := visibilityArchiver.Query(ctx, URI, request, searchattribute.TestNameTypeMap())
+	response, err := visibilityArchiver.Query(ctx, URI, request, searchattribute.TestNameTypeMap)
 	s.NoError(err)
 	s.NotNil(response)
 	s.Len(response.Executions, 1)
