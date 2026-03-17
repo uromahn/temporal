@@ -40,3 +40,9 @@
 .spr.yml
 
 /proto.tmp
+
+**/.venv/
+**/.ruff_cache/
+
+# Ignoring AI agent files
+.agents/
