@@ -120,6 +120,10 @@ func (s *utilSuite) TestConstructVisibilityFilename() {
 	s.Equal("namespaceID/startTimeout_1970-01-01T00:24:32Z_4346151385925082125_8344541402884576509_131521284625246243.visibility", constructVisibilityFilename("namespaceID", "workflowTypeName", "workflowID", "runID", indexKeyStartTimeout, time.Date(1970, 01, 01, 0, 24, 32, 0, time.UTC)))
 }
 
+func (s *utilSuite) TestConstructVisibilityWorkflowIDIndexFilename() {
+	s.Equal("namespaceID/startTimeout_8344541402884576509_1970-01-01T00:24:32Z_4346151385925082125_131521284625246243.visibility", constructVisibilityWorkflowIDIndexFilename("namespaceID", "workflowTypeName", "workflowID", "runID", indexKeyStartTimeout, time.Date(1970, 01, 01, 0, 24, 32, 0, time.UTC)))
+}
+
 func (s *utilSuite) TestWorkflowIdPrecondition() {
 	testCases := []struct {
 		workflowID     string
