@@ -121,7 +121,9 @@ func (s *utilSuite) TestConstructVisibilityFilename() {
 }
 
 func (s *utilSuite) TestConstructVisibilityWorkflowIDIndexFilename() {
-	s.Equal("namespaceID/startTimeout_8344541402884576509_1970-01-01T00:24:32Z_4346151385925082125_131521284625246243.visibility", constructVisibilityWorkflowIDIndexFilename("namespaceID", "workflowTypeName", "workflowID", "runID", indexKeyStartTimeout, time.Date(1970, 01, 01, 0, 24, 32, 0, time.UTC)))
+	// New format: namespace/tag_<rawWorkflowID>_<closeTime>.visibility
+	// No hash of workflowID, no workflowTypeName, no runID.
+	s.Equal("namespaceID/startTimeout_workflowID_1970-01-01T00:24:32Z.visibility", constructVisibilityWorkflowIDIndexFilename("namespaceID", "workflowID", indexKeyStartTimeout, time.Date(1970, 01, 01, 0, 24, 32, 0, time.UTC)))
 }
 
 func (s *utilSuite) TestWorkflowIdPrecondition() {
@@ -153,72 +155,4 @@ func (s *utilSuite) TestWorkflowIdPrecondition() {
 
 }
 
-func (s *utilSuite) TestRunIdPrecondition() {
-	testCases := []struct {
-		workflowID     string
-		runID          string
-		fileName       string
-		expectedResult bool
-	}{
-		{
-			workflowID:     "4418294404690464320",
-			runID:          "15619178330501475177",
-			fileName:       "closeTimeout_2020-02-27T09:42:28Z_12851121011173788097_4418294404690464320_15619178330501475177.visibility",
-			expectedResult: true,
-		},
-		{
-			workflowID:     "4418294404690464320",
-			runID:          "15619178330501475177",
-			fileName:       "closeTimeout_2020-02-27T09:42:28Z_12851121011173788097_4418294404690464320_unkonwnRunID.visibility",
-			expectedResult: false,
-		},
-		{
-			workflowID:     "4418294404690464320",
-			runID:          "",
-			fileName:       "closeTimeout_2020-02-27T09:42:28Z_12851121011173788097_4418294404690464320_unkonwnRunID.visibility",
-			expectedResult: true,
-		},
-	}
 
-	for _, testCase := range testCases {
-		s.Equal(newRunIDPrecondition(testCase.runID)(testCase.fileName), testCase.expectedResult)
-	}
-
-}
-
-func (s *utilSuite) TestWorkflowTypeNamePrecondition() {
-	testCases := []struct {
-		workflowID       string
-		runID            string
-		workflowTypeName string
-		fileName         string
-		expectedResult   bool
-	}{
-		{
-			workflowID:       "4418294404690464320",
-			runID:            "15619178330501475177",
-			workflowTypeName: "12851121011173788097",
-			fileName:         "closeTimeout_2020-02-27T09:42:28Z_12851121011173788097_4418294404690464320_15619178330501475177.visibility",
-			expectedResult:   true,
-		},
-		{
-			workflowID:       "4418294404690464320",
-			runID:            "15619178330501475177",
-			workflowTypeName: "12851121011173788097",
-			fileName:         "closeTimeout_2020-02-27T09:42:28Z_12851121011173788098_4418294404690464320_15619178330501475177.visibility",
-			expectedResult:   false,
-		},
-		{
-			workflowID:       "4418294404690464320",
-			runID:            "15619178330501475177",
-			workflowTypeName: "",
-			fileName:         "closeTimeout_2020-02-27T09:42:28Z_unkownWorkflowTypeName_4418294404690464320_15619178330501475177.visibility",
-			expectedResult:   true,
-		},
-	}
-
-	for _, testCase := range testCases {
-		s.Equal(newWorkflowTypeNamePrecondition(testCase.workflowTypeName)(testCase.fileName), testCase.expectedResult)
-	}
-
-}

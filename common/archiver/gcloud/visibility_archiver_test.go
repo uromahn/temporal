@@ -449,11 +449,12 @@ func (s *visibilityArchiverSuite) TestQuery_Success_WorkflowIDOnly() {
 	storageWrapper := connector.NewMockClient(s.controller)
 	storageWrapper.EXPECT().Exist(gomock.Any(), URI, gomock.Any()).Return(false, nil)
 
-	// Expect query with WorkflowId prefix: namespace/workflowID_hash(workflowID)
+	// Expect query prefix: namespace/workflowID_<rawWorkflowID>
 	expectedPrefix := constructVisibilityFilenamePrefix(testNamespaceID, indexKeyWorkflowID)
-	expectedPrefix = fmt.Sprintf("%s_%s", expectedPrefix, hash(testWorkflowID))
+	expectedPrefix = fmt.Sprintf("%s_%s", expectedPrefix, testWorkflowID)
 
-	filename := expectedPrefix + "_2020-02-05T09:56:14Z_" + hash(testWorkflowTypeName) + "_" + hash(testWorkflowID) + "_" + hash(testRunID) + ".visibility"
+	// Indexed filename: workflowID_<rawWorkflowID>_<closeTime>.visibility
+	filename := fmt.Sprintf("%s_%s.visibility", expectedPrefix, "2020-02-05T09:56:14Z")
 
 	storageWrapper.EXPECT().QueryWithFilters(gomock.Any(), URI, expectedPrefix, 10, 0, gomock.Any()).Return([]string{
 		filename,
@@ -463,9 +464,6 @@ func (s *visibilityArchiverSuite) TestQuery_Success_WorkflowIDOnly() {
 	visibilityArchiver := newVisibilityArchiver(s.logger, s.metricsHandler, storageWrapper)
 	s.NoError(err)
 
-	// We don't need to mock the parser here if we want to test the real parser too,
-	// but the test suite seems to mock it for most Query tests.
-	// Let's use the real parser to be sure.
 	visibilityArchiver.queryParser = NewQueryParser()
 
 	request := &archiver.QueryVisibilityRequest{
@@ -512,14 +510,17 @@ func (s *visibilityArchiverSuite) TestQuery_Success_WorkflowID_WithTimeFilter() 
 	storageWrapper := connector.NewMockClient(s.controller)
 	storageWrapper.EXPECT().Exist(gomock.Any(), URI, gomock.Any()).Return(false, nil)
 
+	// Prefix: namespace/workflowID_<rawWorkflowID>
 	expectedPrefix := constructVisibilityFilenamePrefix(testNamespaceID, indexKeyWorkflowID)
-	expectedPrefix = fmt.Sprintf("%s_%s", expectedPrefix, hash(testWorkflowID))
+	expectedPrefix = fmt.Sprintf("%s_%s", expectedPrefix, testWorkflowID)
 
-	// The query logic now appends CloseTime based on SearchPrecision to the prefix
-	// precision Day format: "2006-01-02T"
+	// When CloseTime+SearchPrecision (Day) is provided, the prefix is further narrowed:
+	// namespace/workflowID_<rawWorkflowID>_2020-02-05T
 	expectedExtendedPrefix := fmt.Sprintf("%s_%s", expectedPrefix, "2020-02-05T")
 
-	filename := expectedPrefix + "_2020-02-05T09:56:14Z_" + hash(testWorkflowTypeName) + "_" + hash(testWorkflowID) + "_" + hash(testRunID) + ".visibility"
+	// Filename stored under the workflowID index:
+	// workflowID_<rawWorkflowID>_<closeTimeRFC3339>.visibility
+	filename := fmt.Sprintf("%s_%s.visibility", expectedPrefix, "2020-02-05T09:56:14Z")
 
 	storageWrapper.EXPECT().QueryWithFilters(gomock.Any(), URI, expectedExtendedPrefix, 10, 0, gomock.Any()).Return([]string{
 		filename,

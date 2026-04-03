@@ -125,7 +125,7 @@ func (v *visibilityArchiver) Archive(ctx context.Context, URI archiver.URI, requ
 		return errRetryable
 	}
 
-	filename = constructVisibilityWorkflowIDIndexFilename(request.GetNamespaceId(), request.WorkflowTypeName, request.GetWorkflowId(), request.GetRunId(), indexKeyWorkflowID, request.CloseTime.AsTime())
+	filename = constructVisibilityWorkflowIDIndexFilename(request.GetNamespaceId(), request.GetWorkflowId(), indexKeyWorkflowID, request.CloseTime.AsTime())
 	if err := v.gcloudStorage.Upload(ctx, URI, filename, encodedVisibilityRecord); err != nil {
 		logger.Error(archiver.ArchiveTransientErrorMsg, tag.ArchivalArchiveFailReason(errWriteFile), tag.Error(err))
 		return errRetryable
@@ -235,15 +235,10 @@ func (v *visibilityArchiver) queryPrefix(ctx context.Context, uri archiver.URI, 
 	}
 
 	filters := make([]connector.Precondition, 0)
-	if request.parsedQuery.workflowID != nil {
-		filters = append(filters, newWorkflowIDPrecondition(hash(*request.parsedQuery.workflowID)))
-	}
-
-	if request.parsedQuery.runID != nil {
-		filters = append(filters, newWorkflowIDPrecondition(hash(*request.parsedQuery.runID)))
-	}
-
-	if request.parsedQuery.workflowType != nil {
+	// WorkflowID-index queries scope results via the GCS prefix (raw workflowID),
+	// so no post-filter is needed for those. For time-based queries, optionally
+	// filter by the hashed workflowType if one was specified.
+	if request.parsedQuery.workflowID == nil && request.parsedQuery.workflowType != nil {
 		filters = append(filters, newWorkflowIDPrecondition(hash(*request.parsedQuery.workflowType)))
 	}
 

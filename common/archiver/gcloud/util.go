@@ -56,9 +56,14 @@ func constructTimeBasedSearchKey(namespaceID, tag string, t time.Time, precision
 	return fmt.Sprintf("%s_%s", constructVisibilityFilenamePrefix(namespaceID, tag), t.Format(timeFormat))
 }
 
+// constructWorkflowIdBasedSearchKey builds the GCS prefix for a workflowID-index query.
+// The prefix uses the raw workflowID (not its hash) so filenames are human-readable.
+// If a CloseTime + SearchPrecision are provided, the prefix is further narrowed by time.
 func constructWorkflowIdBasedSearchKey(namespaceID string, parsedQuery *parsedQuery) string {
+	// Use the raw workflowID so filenames are human-readable and the prefix
+	// is a straightforward exact-match on the workflowID segment.
 	prefix := constructVisibilityFilenamePrefix(namespaceID, indexKeyWorkflowID)
-	prefix = fmt.Sprintf("%s_%s", prefix, hash(*parsedQuery.workflowID))
+	prefix = fmt.Sprintf("%s_%s", prefix, *parsedQuery.workflowID)
 
 	if !parsedQuery.closeTime.IsZero() && parsedQuery.searchPrecision != nil {
 		var timeFormat = ""
@@ -76,14 +81,6 @@ func constructWorkflowIdBasedSearchKey(namespaceID string, parsedQuery *parsedQu
 			timeFormat = "2006-01-02T" + timeFormat
 		}
 		prefix = fmt.Sprintf("%s_%s", prefix, parsedQuery.closeTime.Format(timeFormat))
-
-		if parsedQuery.runID != nil {
-			var workflowTypeHash string
-			if parsedQuery.workflowType != nil {
-				workflowTypeHash = hash(*parsedQuery.workflowType)
-			}
-			prefix = fmt.Sprintf("%s_%s_%s", prefix, workflowTypeHash, hash(*parsedQuery.runID))
-		}
 	}
 	return prefix
 }
@@ -140,9 +137,13 @@ func constructVisibilityFilename(namespace, workflowTypeName, workflowID, runID,
 	return fmt.Sprintf("%s_%s_%s_%s_%s.visibility", prefix, t.Format(time.RFC3339), hash(workflowTypeName), hash(workflowID), hash(runID))
 }
 
-func constructVisibilityWorkflowIDIndexFilename(namespace, workflowTypeName, workflowID, runID, tag string, t time.Time) string {
+// constructVisibilityWorkflowIDIndexFilename builds the filename for the workflowID-based
+// index entry. The workflowID is stored in plain text (not hashed) for human readability,
+// and workflowTypeName / runID are omitted — they are not needed for this index.
+// Format: namespace/tag_<workflowID>_<closeTime>.visibility
+func constructVisibilityWorkflowIDIndexFilename(namespace, workflowID, tag string, t time.Time) string {
 	prefix := constructVisibilityFilenamePrefix(namespace, tag)
-	return fmt.Sprintf("%s_%s_%s_%s_%s.visibility", prefix, hash(workflowID), t.Format(time.RFC3339), hash(workflowTypeName), hash(runID))
+	return fmt.Sprintf("%s_%s_%s.visibility", prefix, workflowID, t.Format(time.RFC3339))
 }
 
 func deserializeQueryVisibilityToken(bytes []byte) (*queryVisibilityToken, error) {
@@ -176,10 +177,13 @@ func convertToExecutionInfo(record *archiverspb.VisibilityRecord, saTypeMap sear
 	}, nil
 }
 
-func newRunIDPrecondition(runID string) connector.Precondition {
+// newWorkflowIDPrecondition returns a filter that checks whether a filename contains
+// the given workflowID hash (used for time-based index entries where the workflowID
+// appears as a hash in position [3] of the underscore-split filename).
+func newWorkflowIDPrecondition(workflowIDHash string) connector.Precondition {
 	return func(subject interface{}) bool {
 
-		if runID == "" {
+		if workflowIDHash == "" {
 			return true
 		}
 
@@ -188,60 +192,12 @@ func newRunIDPrecondition(runID string) connector.Precondition {
 			return false
 		}
 
-		if strings.Contains(fileName, runID) {
-			fileNameParts := strings.SplitN(fileName, "_", 5)
-			if len(fileNameParts) != 5 {
-				return true
-			}
-			return strings.Contains(fileName, fileNameParts[4])
-		}
-
-		return false
-	}
-}
-
-func newWorkflowIDPrecondition(workflowID string) connector.Precondition {
-	return func(subject interface{}) bool {
-
-		if workflowID == "" {
-			return true
-		}
-
-		fileName, ok := subject.(string)
-		if !ok {
-			return false
-		}
-
-		if strings.Contains(fileName, workflowID) {
+		if strings.Contains(fileName, workflowIDHash) {
 			fileNameParts := strings.SplitN(fileName, "_", 5)
 			if len(fileNameParts) != 5 {
 				return true
 			}
 			return strings.Contains(fileName, fileNameParts[3])
-		}
-
-		return false
-	}
-}
-
-func newWorkflowTypeNamePrecondition(workflowTypeName string) connector.Precondition {
-	return func(subject interface{}) bool {
-
-		if workflowTypeName == "" {
-			return true
-		}
-
-		fileName, ok := subject.(string)
-		if !ok {
-			return false
-		}
-
-		if strings.Contains(fileName, workflowTypeName) {
-			fileNameParts := strings.SplitN(fileName, "_", 5)
-			if len(fileNameParts) != 5 {
-				return true
-			}
-			return strings.Contains(fileName, fileNameParts[2])
 		}
 
 		return false
