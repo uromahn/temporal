@@ -125,34 +125,3 @@ func (s *utilSuite) TestConstructVisibilityWorkflowIDIndexFilename() {
 	// No hash of workflowID, no workflowTypeName, no runID.
 	s.Equal("namespaceID/startTimeout_workflowID_1970-01-01T00:24:32Z.visibility", constructVisibilityWorkflowIDIndexFilename("namespaceID", "workflowID", indexKeyStartTimeout, time.Date(1970, 01, 01, 0, 24, 32, 0, time.UTC)))
 }
-
-func (s *utilSuite) TestWorkflowIdPrecondition() {
-	testCases := []struct {
-		workflowID     string
-		fileName       string
-		expectedResult bool
-	}{
-		{
-			workflowID:     "4418294404690464320",
-			fileName:       "closeTimeout_2020-02-27T09:42:28Z_12851121011173788097_4418294404690464320_15619178330501475177.visibility",
-			expectedResult: true,
-		},
-		{
-			workflowID:     "testWorkflowID",
-			fileName:       "closeTimeout_2020-02-27T09:42:28Z_12851121011173788097_4418294404690464320_15619178330501475177.visibility",
-			expectedResult: false,
-		},
-		{
-			workflowID:     "",
-			fileName:       "closeTimeout_2020-02-27T09:42:28Z_12851121011173788097_4418294404690464320_15619178330501475177.visibility",
-			expectedResult: true,
-		},
-	}
-
-	for _, testCase := range testCases {
-		s.Equal(newWorkflowIDPrecondition(testCase.workflowID)(testCase.fileName), testCase.expectedResult)
-	}
-
-}
-
-

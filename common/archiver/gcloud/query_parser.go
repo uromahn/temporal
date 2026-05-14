@@ -73,6 +73,10 @@ func (p *queryParser) Parse(query string) (*parsedQuery, error) {
 			return nil, errors.New("requires either a StartTime or a CloseTime")
 		}
 
+		if !parsedQuery.closeTime.IsZero() && !parsedQuery.startTime.IsZero() {
+			return nil, errors.New("only one of StartTime or CloseTime can be provided")
+		}
+
 		if parsedQuery.searchPrecision == nil {
 			return nil, errors.New("SearchPrecision is required when searching for a StartTime or CloseTime")
 		}
@@ -82,7 +86,8 @@ func (p *queryParser) Parse(query string) (*parsedQuery, error) {
 		}
 	} else {
 		// If WorkflowId is provided, then we want to do a workflowId-based query.
-		// We only support startTime in this case and if provided, we also require a searchPrecision
+		// We only support closeTime in this case and if provided, we also require a searchPrecision
+		// If startTime is provided, an error should be returned.
 		if !parsedQuery.startTime.IsZero() {
 			return nil, errors.New("StartTime is not supported when searching for a WorkflowId")
 		}

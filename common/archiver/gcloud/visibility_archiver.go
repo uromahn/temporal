@@ -40,7 +40,7 @@ type (
 	}
 
 	queryVisibilityToken struct {
-		Offset int
+		PageToken string
 	}
 
 	queryVisibilityRequest struct {
@@ -111,7 +111,7 @@ func (v *visibilityArchiver) Archive(ctx context.Context, URI archiver.URI, requ
 		return err
 	}
 
-	// The filename has the format: closeTimestamp_hash(runID).visibility
+	// The filename has the format: namespacehash/tag_closeTimeout_RFC3339(closeTimestamp)_hash(workflowTypeName)_hash(workflowID)_hash(runID).visibility
 	// This format allows the archiver to sort all records without reading the file contents
 	filename := constructVisibilityFilename(request.GetNamespaceId(), request.WorkflowTypeName, request.GetWorkflowId(), request.GetRunId(), indexKeyCloseTimeout, request.CloseTime.AsTime())
 	if err := v.gcloudStorage.Upload(ctx, URI, filename, encodedVisibilityRecord); err != nil {
@@ -119,12 +119,14 @@ func (v *visibilityArchiver) Archive(ctx context.Context, URI archiver.URI, requ
 		return errRetryable
 	}
 
+	// The filename has the format: namespacehash/tag_startTimeout_RFC3339(startTime)_hash(workflowTypeName)_hash(workflowID)_hash(runID).visibility
 	filename = constructVisibilityFilename(request.GetNamespaceId(), request.WorkflowTypeName, request.GetWorkflowId(), request.GetRunId(), indexKeyStartTimeout, request.StartTime.AsTime())
 	if err := v.gcloudStorage.Upload(ctx, URI, filename, encodedVisibilityRecord); err != nil {
 		logger.Error(archiver.ArchiveTransientErrorMsg, tag.ArchivalArchiveFailReason(errWriteFile), tag.Error(err))
 		return errRetryable
 	}
 
+	// The filename has the format: namespacehash/tag_workflowID_RFC3339(closeTimestamp).visibility
 	filename = constructVisibilityWorkflowIDIndexFilename(request.GetNamespaceId(), request.GetWorkflowId(), indexKeyWorkflowID, request.CloseTime.AsTime())
 	if err := v.gcloudStorage.Upload(ctx, URI, filename, encodedVisibilityRecord); err != nil {
 		logger.Error(archiver.ArchiveTransientErrorMsg, tag.ArchivalArchiveFailReason(errWriteFile), tag.Error(err))
@@ -234,15 +236,7 @@ func (v *visibilityArchiver) queryPrefix(ctx context.Context, uri archiver.URI, 
 		return nil, err
 	}
 
-	filters := make([]connector.Precondition, 0)
-	// WorkflowID-index queries scope results via the GCS prefix (raw workflowID),
-	// so no post-filter is needed for those. For time-based queries, optionally
-	// filter by the hashed workflowType if one was specified.
-	if request.parsedQuery.workflowID == nil && request.parsedQuery.workflowType != nil {
-		filters = append(filters, newWorkflowIDPrecondition(hash(*request.parsedQuery.workflowType)))
-	}
-
-	filenames, completed, currentCursorPos, err := v.gcloudStorage.QueryWithFilters(ctx, uri, prefix, request.pageSize, token.Offset, filters)
+	filenames, nextPageToken, err := v.gcloudStorage.QueryWithPagination(ctx, uri, prefix, request.pageSize, token.PageToken)
 	if err != nil {
 		return nil, &serviceerror.InvalidArgument{Message: err.Error()}
 	}
@@ -266,9 +260,9 @@ func (v *visibilityArchiver) queryPrefix(ctx context.Context, uri archiver.URI, 
 		response.Executions = append(response.Executions, executionInfo)
 	}
 
-	if !completed {
+	if nextPageToken != "" {
 		newToken := &queryVisibilityToken{
-			Offset: currentCursorPos,
+			PageToken: nextPageToken,
 		}
 		encodedToken, err := serializeToken(newToken)
 		if err != nil {

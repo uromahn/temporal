@@ -177,33 +177,6 @@ func convertToExecutionInfo(record *archiverspb.VisibilityRecord, saTypeMap sear
 	}, nil
 }
 
-// newWorkflowIDPrecondition returns a filter that checks whether a filename contains
-// the given workflowID hash (used for time-based index entries where the workflowID
-// appears as a hash in position [3] of the underscore-split filename).
-func newWorkflowIDPrecondition(workflowIDHash string) connector.Precondition {
-	return func(subject interface{}) bool {
-
-		if workflowIDHash == "" {
-			return true
-		}
-
-		fileName, ok := subject.(string)
-		if !ok {
-			return false
-		}
-
-		if strings.Contains(fileName, workflowIDHash) {
-			fileNameParts := strings.SplitN(fileName, "_", 5)
-			if len(fileNameParts) != 5 {
-				return true
-			}
-			return strings.Contains(fileName, fileNameParts[3])
-		}
-
-		return false
-	}
-}
-
 func isRetryableError(err error) (retryable bool) {
 	switch err.Error() {
 	case connector.ErrBucketNotFound.Error(),

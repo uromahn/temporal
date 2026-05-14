@@ -23,16 +23,12 @@ var (
 )
 
 type (
-	// Precondition is a function that allow you to filter a query result.
-	// If subject match params conditions then return true, else return false.
-	Precondition func(subject interface{}) bool
-
 	// Client is a wrapper around Google cloud storages client library.
 	Client interface {
 		Upload(ctx context.Context, URI archiver.URI, fileName string, file []byte) error
 		Get(ctx context.Context, URI archiver.URI, file string) ([]byte, error)
 		Query(ctx context.Context, URI archiver.URI, fileNamePrefix string) ([]string, error)
-		QueryWithFilters(ctx context.Context, URI archiver.URI, fileNamePrefix string, pageSize, offset int, filters []Precondition) ([]string, bool, int, error)
+		QueryWithPagination(ctx context.Context, URI archiver.URI, fileNamePrefix string, pageSize int, pageToken string) ([]string, string, error)
 		Exist(ctx context.Context, URI archiver.URI, fileName string) (bool, error)
 	}
 
@@ -132,52 +128,27 @@ func (s *storageWrapper) Query(ctx context.Context, URI archiver.URI, fileNamePr
 
 }
 
-// QueryWithFilters, retieves filenames that match filter parameters. PageSize is optional, 0 means all records.
-func (s *storageWrapper) QueryWithFilters(ctx context.Context, URI archiver.URI, fileNamePrefix string, pageSize, offset int, filters []Precondition) ([]string, bool, int, error) {
-	var err error
-	currentPos := offset
-	resultSet := make([]string, 0)
+// QueryWithPagination retrieves filenames that match the provided prefix using native GCS pagination.
+func (s *storageWrapper) QueryWithPagination(ctx context.Context, URI archiver.URI, fileNamePrefix string, pageSize int, pageToken string) ([]string, string, error) {
 	bucket := s.client.Bucket(URI.Hostname())
-	var attrs = new(storage.ObjectAttrs)
 	it := bucket.Objects(ctx, &storage.Query{
 		Prefix: formatSinkPath(URI.Path()) + "/" + fileNamePrefix,
 	})
 
-	for {
-		// Check page completion BEFORE fetching the next item. This ensures that
-		// when filters skip many items, a full page always returns completed=false
-		// (i.e. there may be more), regardless of whether the raw iterator is exhausted.
-		if isPageCompleted(pageSize, len(resultSet)) {
-			return resultSet, false, currentPos, nil
-		}
+	pager := iterator.NewPager(it, pageSize, pageToken)
+	var objects []*storage.ObjectAttrs
 
-		attrs, err = it.Next()
-		if err == iterator.Done {
-			return resultSet, true, currentPos, nil
-		}
-
-		valid := true
-		for _, f := range filters {
-			if valid = f(attrs.Name); !valid {
-				break
-			}
-		}
-
-		if valid {
-			if offset > 0 {
-				offset--
-				continue
-			}
-			// if match parsedQuery criteria and current cursor position is the last known position (offset is zero), append fileName to resultSet
-			resultSet = append(resultSet, attrs.Name)
-			currentPos++
-		}
+	nextPageToken, err := pager.NextPage(&objects)
+	if err != nil {
+		return nil, "", err
 	}
 
-}
+	resultSet := make([]string, 0, len(objects))
+	for _, obj := range objects {
+		resultSet = append(resultSet, obj.Name)
+	}
 
-func isPageCompleted(pageSize, currentPosition int) bool {
-	return pageSize != 0 && currentPosition > 0 && pageSize <= currentPosition
+	return resultSet, nextPageToken, nil
 }
 
 func formatSinkPath(sinkPath string) string {
