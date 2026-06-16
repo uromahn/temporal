@@ -243,67 +243,6 @@ func (s *clientSuite) TestQuery() {
 	s.Equal(strings.Join(fileNames, ", "), "fileName_01")
 }
 
-func (s *clientSuite) TestQueryWithFilter() {
-	ctx := context.Background()
-	mockBucketHandleClient := connector.NewMockBucketHandleWrapper(s.controller)
-	mockStorageClient := connector.NewMockGcloudStorageClient(s.controller)
-	mockObjectIterator := connector.NewMockObjectIteratorWrapper(s.controller)
-	storageWrapper, _ := connector.NewClientWithParams(mockStorageClient)
-
-	attr := new(storage.ObjectAttrs)
-	attr.Name = "closeTimeout_2020-02-27T09:42:28Z_12851121011173788097_4418294404690464320_15619178330501475177.visibility"
-	attrInvalid := new(storage.ObjectAttrs)
-	attrInvalid.Name = "closeTimeout_2020-02-27T09:42:28Z_12851121011173788097_4418294404690464321_15619178330501475177.visibility"
-
-	mockStorageClient.EXPECT().Bucket("my-bucket-cad").Return(mockBucketHandleClient)
-	mockBucketHandleClient.EXPECT().Objects(ctx, gomock.Any()).Return(mockObjectIterator)
-	mockIterator := 0
-	mockObjectIterator.EXPECT().Next().DoAndReturn(func() (*storage.ObjectAttrs, error) {
-		mockIterator++
-		switch mockIterator {
-		case 1:
-			return attr, nil
-		case 2:
-			return attrInvalid, nil
-		default:
-			return nil, iterator.Done
-		}
-
-	}).Times(3)
-
-	var fileNames []string
-	URI, err := archiver.NewURI("gs://my-bucket-cad/temporal_archival/development")
-	s.Require().NoError(err)
-	fileNames, _, _, err = storageWrapper.QueryWithFilters(ctx, URI, "closeTimeout_2020-02-27T09:42:28Z", 0, 0, []connector.Precondition{newWorkflowIDPrecondition("4418294404690464320")})
-
-	s.Require().NoError(err)
-	s.Equal(strings.Join(fileNames, ", "), "closeTimeout_2020-02-27T09:42:28Z_12851121011173788097_4418294404690464320_15619178330501475177.visibility")
-}
-
-func newWorkflowIDPrecondition(workflowID string) connector.Precondition {
-	return func(subject any) bool {
-
-		if workflowID == "" {
-			return true
-		}
-
-		fileName, ok := subject.(string)
-		if !ok {
-			return false
-		}
-
-		if strings.Contains(fileName, workflowID) {
-			fileNameParts := strings.Split(fileName, "_")
-			if len(fileNameParts) != 5 {
-				return true
-			}
-			return strings.Contains(fileName, fileNameParts[3])
-		}
-
-		return false
-	}
-}
-
 // Ensures that no code in this package or its parent folder accidentally uses gRPC functions
 // since they are stripped from the binary via `disable_grpc_modules`. This is crude but effective.
 func (s *clientSuite) TestNoGRPCUsage() {

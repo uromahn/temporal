@@ -15,6 +15,7 @@ import (
 
 	storage "cloud.google.com/go/storage"
 	gomock "go.uber.org/mock/gomock"
+	iterator "google.golang.org/api/iterator"
 )
 
 // MockGcloudStorageClient is a mock of GcloudStorageClient interface.
@@ -347,4 +348,18 @@ func (m *MockObjectIteratorWrapper) Next() (*storage.ObjectAttrs, error) {
 func (mr *MockObjectIteratorWrapperMockRecorder) Next() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Next", reflect.TypeOf((*MockObjectIteratorWrapper)(nil).Next))
+}
+
+// PageInfo mocks base method.
+func (m *MockObjectIteratorWrapper) PageInfo() *iterator.PageInfo {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "PageInfo")
+	ret0, _ := ret[0].(*iterator.PageInfo)
+	return ret0
+}
+
+// PageInfo indicates an expected call of PageInfo.
+func (mr *MockObjectIteratorWrapperMockRecorder) PageInfo() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PageInfo", reflect.TypeOf((*MockObjectIteratorWrapper)(nil).PageInfo))
 }
