@@ -8,6 +8,7 @@ import (
 
 	"cloud.google.com/go/storage"
 	"golang.org/x/oauth2/google"
+	"google.golang.org/api/iterator"
 	"google.golang.org/api/option"
 )
 
@@ -77,6 +78,7 @@ type (
 	// ObjectIteratorWrapper is an interface that expose some methods from gcloud storage objectIterator
 	ObjectIteratorWrapper interface {
 		Next() (*storage.ObjectAttrs, error)
+		PageInfo() *iterator.PageInfo
 	}
 )
 

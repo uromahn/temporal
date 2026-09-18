@@ -86,21 +86,20 @@ func (mr *MockClientMockRecorder) Query(ctx, URI, fileNamePrefix any) *gomock.Ca
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Query", reflect.TypeOf((*MockClient)(nil).Query), ctx, URI, fileNamePrefix)
 }
 
-// QueryWithFilters mocks base method.
-func (m *MockClient) QueryWithFilters(ctx context.Context, URI archiver.URI, fileNamePrefix string, pageSize, offset int, filters []Precondition) ([]string, bool, int, error) {
+// QueryWithPagination mocks base method.
+func (m *MockClient) QueryWithPagination(ctx context.Context, URI archiver.URI, fileNamePrefix string, pageSize int, pageToken string) ([]string, string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "QueryWithFilters", ctx, URI, fileNamePrefix, pageSize, offset, filters)
+	ret := m.ctrl.Call(m, "QueryWithPagination", ctx, URI, fileNamePrefix, pageSize, pageToken)
 	ret0, _ := ret[0].([]string)
-	ret1, _ := ret[1].(bool)
-	ret2, _ := ret[2].(int)
-	ret3, _ := ret[3].(error)
-	return ret0, ret1, ret2, ret3
+	ret1, _ := ret[1].(string)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
 }
 
-// QueryWithFilters indicates an expected call of QueryWithFilters.
-func (mr *MockClientMockRecorder) QueryWithFilters(ctx, URI, fileNamePrefix, pageSize, offset, filters any) *gomock.Call {
+// QueryWithPagination indicates an expected call of QueryWithPagination.
+func (mr *MockClientMockRecorder) QueryWithPagination(ctx, URI, fileNamePrefix, pageSize, pageToken any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "QueryWithFilters", reflect.TypeOf((*MockClient)(nil).QueryWithFilters), ctx, URI, fileNamePrefix, pageSize, offset, filters)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "QueryWithPagination", reflect.TypeOf((*MockClient)(nil).QueryWithPagination), ctx, URI, fileNamePrefix, pageSize, pageToken)
 }
 
 // Upload mocks base method.
